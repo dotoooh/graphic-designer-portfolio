@@ -3,6 +3,8 @@ import Intro from "./components/Intro.jsx";
 import ProjectModal from "./components/ProjectModal.jsx";
 import { projects, categories } from "./data/projects.js";
 import assetUrl from "./utils/assetUrl.js";
+import iconDefaultUrl from "../icon1.png?url";
+import iconHoverUrl from "../icon2.png?url";
 
 function readRoute() {
   const hash = window.location.hash;
@@ -76,6 +78,13 @@ export default function App() {
     window.scrollTo(0, 0);
   }
 
+  function goWork() {
+    if (route.page === "work") return;
+    workScroll.current = 0;
+    navigate("#work");
+    window.scrollTo(0, 0);
+  }
+
   function openProject(project, event) {
     projectOpener.current = event.currentTarget;
     navigate(`#work/${project.id}`, { portfolioModal: true });
@@ -111,6 +120,18 @@ export default function App() {
           inert={selectedProject ? true : undefined}
           className={`site-header ${route.page === "work" ? "site-header--work" : ""}`}
         >
+          <a
+            className="work-capsule"
+            href="#intro"
+            aria-label="GetMore 인트로로 돌아가기"
+            onClick={(event) => {
+              event.preventDefault();
+              goIntro();
+            }}
+          >
+            <img className="work-capsule__default" src={iconDefaultUrl} alt="" />
+            <img className="work-capsule__hover" src={iconHoverUrl} alt="" />
+          </a>
           <button
             className="wordmark"
             onClick={goIntro}
@@ -144,7 +165,7 @@ export default function App() {
         </header>
       )}
       {route.page === "intro" ? (
-        <Intro />
+        <Intro onOpenWork={goWork} />
       ) : (
         <main
           className="work-page"

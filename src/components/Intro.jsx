@@ -1,8 +1,6 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import backgroundUrl from "../../main1-1.png?url";
 import machineUrl from "../../main1-2.png?url";
-import iconDefaultUrl from "../../icon1.png?url";
-import iconHoverUrl from "../../icon2.png?url";
 import assetUrl from "../utils/assetUrl.js";
 import { introArtwork } from "./introArtwork.js";
 import "./Intro.css";
@@ -11,11 +9,47 @@ import "./Intro.css";
 const silhouette =
   "M1252 392 Q1278 383 1306 392 L1311 408 Q1369 410 1374 432 L1379 448 Q1378 455 1370 457 C1440 492 1491 560 1491 632 C1491 715 1453 769 1410 794 Q1419 812 1410 820 L1430 836 L1431 1031 Q1454 1036 1450 1059 L1450 1077 Q1445 1101 1320 1103 Q1321 1107 1280 1108 Q1240 1109 1239 1103 Q1120 1103 1115 1076 L1115 1059 Q1111 1036 1133 1032 L1133 836 L1153 820 Q1140 807 1152 794 C1111 758 1075 709 1075 635 C1075 558 1123 492 1191 458 Q1177 455 1183 445 L1187 432 Q1188 411 1249 408 Z";
 
-export default function Intro() {
+const DEACTIVATE_DELAY = 720;
+
+export default function Intro({ onOpenWork }) {
   const [active, setActive] = useState(false);
-  const [hoverIconLoaded, setHoverIconLoaded] = useState(false);
   const hovering = useRef(false);
   const lastPointer = useRef(null);
+  const deactivateTimer = useRef(null);
+  const machineButton = useRef(null);
+
+  function cancelDeactivation() {
+    window.clearTimeout(deactivateTimer.current);
+    deactivateTimer.current = null;
+  }
+
+  function activate() {
+    cancelDeactivation();
+    setActive(true);
+  }
+
+  function scheduleDeactivation() {
+    cancelDeactivation();
+    deactivateTimer.current = window.setTimeout(() => {
+      deactivateTimer.current = null;
+      setActive(false);
+      machineButton.current?.style.setProperty("--capsule-drift-x", "0px");
+      machineButton.current?.style.setProperty("--capsule-drift-y", "0px");
+    }, DEACTIVATE_DELAY);
+  }
+
+  useEffect(() => () => cancelDeactivation(), []);
+
+  function followPointer(event) {
+    if (event.pointerType !== "mouse" || !active || !machineButton.current) return;
+    const bounds = machineButton.current.getBoundingClientRect();
+    // main1-2.png is a single flat illustration. Keep its original pixels intact
+    // and use a restrained, slow parallax to suggest gentle capsule movement.
+    const x = Math.max(-1, Math.min(1, (event.clientX - (bounds.left + bounds.width / 2)) / (bounds.width * 0.42)));
+    const y = Math.max(-1, Math.min(1, (event.clientY - (bounds.top + bounds.height * 0.36)) / (bounds.height * 0.28)));
+    machineButton.current.style.setProperty("--capsule-drift-x", `${x * 2}px`);
+    machineButton.current.style.setProperty("--capsule-drift-y", `${y * 1.5}px`);
+  }
 
   return (
     <section
@@ -23,39 +57,12 @@ export default function Intro() {
       data-active={active}
       aria-labelledby="intro-title"
       onPointerDown={(event) => {
-        if (!event.target.closest(".intro-interaction")) setActive(false);
+        if (!event.target.closest(".intro-interaction, .intro-orb")) {
+          cancelDeactivation();
+          setActive(false);
+        }
       }}
     >
-      <header className="intro-header">
-        <a
-          className="intro-logo"
-          href="#intro"
-          aria-label="GetMore 인트로로 돌아가기"
-          data-hover-ready={hoverIconLoaded}
-          onClick={() => setActive(false)}
-        >
-          <span className="intro-logo-images">
-            <img
-              className="intro-logo-image intro-logo-image--default"
-              src={iconDefaultUrl}
-              alt=""
-              width="1410"
-              height="1465"
-              draggable="false"
-            />
-            <img
-              className="intro-logo-image intro-logo-image--hover"
-              src={iconHoverUrl}
-              onLoad={() => setHoverIconLoaded(true)}
-              alt=""
-              width="1410"
-              height="1465"
-              draggable="false"
-            />
-          </span>
-        </a>
-      </header>
-
       <img
         className="intro-background"
         src={backgroundUrl}
@@ -69,45 +76,7 @@ export default function Intro() {
         GetMore — Graphic design portfolio
       </h1>
 
-      <div className="intro-artworks" aria-hidden="true">
-        {introArtwork.map((artwork, index) => (
-          <div
-            className="intro-orb"
-            key={artwork.id}
-            data-artwork-id={artwork.id}
-            style={{
-              "--desktop-x": artwork.desktop.x,
-              "--desktop-y": artwork.desktop.y,
-              "--desktop-size": artwork.desktop.size,
-              "--mobile-x": artwork.mobile.x,
-              "--mobile-y": artwork.mobile.y,
-              "--mobile-size": artwork.mobile.size,
-              "--tilt": `${artwork.tilt}deg`,
-              "--travel-duration": `${artwork.duration}ms`,
-              "--enter-delay": `${index * 80}ms`,
-              "--exit-delay": `${(introArtwork.length - 1 - index) * 65}ms`,
-              "--float-duration": `${4.8 + index * 0.43}s`,
-              "--float-x": `${index % 2 ? -2 : 2}px`,
-              "--float-y": `${-3 - (index % 3)}px`,
-            }}
-          >
-            <div className="intro-orb-float">
-              <div className="intro-orb-image">
-                <img
-                  src={assetUrl(artwork.src)}
-                  alt=""
-                  width={artwork.width}
-                  height={artwork.height}
-                  style={{ objectPosition: artwork.position || "50% 50%" }}
-                  draggable="false"
-                />
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* This hit area never shrinks. Decorative orbs cannot intercept it. */}
+      {/* The hit area stays full-size while the illustration shrinks. */}
       <div
         className="intro-interaction"
         onPointerEnter={(event) => {
@@ -116,17 +85,19 @@ export default function Intro() {
             window.matchMedia("(hover: hover) and (pointer: fine)").matches
           ) {
             hovering.current = true;
-            setActive(true);
+            activate();
           }
         }}
         onPointerLeave={(event) => {
           if (event.pointerType === "mouse") {
             hovering.current = false;
-            setActive(false);
+            scheduleDeactivation();
           }
         }}
+        onPointerMove={followPointer}
       >
         <button
+          ref={machineButton}
           className="machine"
           type="button"
           aria-label="주변 작업물 그래픽 펼치기"
@@ -135,13 +106,18 @@ export default function Intro() {
             lastPointer.current = event.pointerType;
           }}
           onClick={(event) => {
-            // Mouse uses hover; touch, pen and keyboard use the same toggle.
             if (event.detail === 0 || lastPointer.current !== "mouse") {
+              cancelDeactivation();
               setActive((current) => !current);
             }
           }}
-          onBlur={() => {
-            if (!hovering.current) setActive(false);
+          onBlur={(event) => {
+            if (
+              !hovering.current &&
+              !event.relatedTarget?.closest?.(".intro-orb")
+            ) {
+              scheduleDeactivation();
+            }
           }}
         >
           <svg
@@ -163,6 +139,61 @@ export default function Intro() {
           </svg>
           <span className="intro-machine-shadow" aria-hidden="true" />
         </button>
+      </div>
+
+      <div className="intro-artworks">
+        {introArtwork.map((artwork, index) => (
+          <button
+            className="intro-orb"
+            key={artwork.id}
+            type="button"
+            disabled={!active}
+            data-artwork-id={artwork.id}
+            aria-label={`${artwork.title} 작업물 목록 보기`}
+            onPointerEnter={(event) => {
+              if (event.pointerType === "mouse") cancelDeactivation();
+            }}
+            onPointerLeave={(event) => {
+              if (event.pointerType === "mouse") scheduleDeactivation();
+            }}
+            onBlur={(event) => {
+              if (
+                !event.relatedTarget?.closest?.(".intro-orb, .machine")
+              ) {
+                scheduleDeactivation();
+              }
+            }}
+            onClick={() => onOpenWork?.()}
+            style={{
+              "--desktop-x": artwork.desktop.x,
+              "--desktop-y": artwork.desktop.y,
+              "--desktop-size": artwork.desktop.size,
+              "--mobile-x": artwork.mobile.x,
+              "--mobile-y": artwork.mobile.y,
+              "--mobile-size": artwork.mobile.size,
+              "--tilt": `${artwork.tilt}deg`,
+              "--travel-duration": `${artwork.duration}ms`,
+              "--enter-delay": `${index * 80}ms`,
+              "--exit-delay": `${(introArtwork.length - 1 - index) * 65}ms`,
+              "--float-duration": `${4.8 + index * 0.43}s`,
+              "--float-x": `${index % 2 ? -2 : 2}px`,
+              "--float-y": `${-3 - (index % 3)}px`,
+            }}
+          >
+            <span className="intro-orb-float">
+              <span className="intro-orb-image">
+                <img
+                  src={assetUrl(artwork.src)}
+                  alt=""
+                  width={artwork.width}
+                  height={artwork.height}
+                  style={{ objectPosition: artwork.position || "50% 50%" }}
+                  draggable="false"
+                />
+              </span>
+            </span>
+          </button>
+        ))}
       </div>
     </section>
   );
