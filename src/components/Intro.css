@@ -1,0 +1,258 @@
+.intro {
+  position: relative;
+  height: 100svh;
+  min-height: 620px;
+  overflow: hidden;
+  isolation: isolate;
+  background: #e8ecf5;
+  --machine-width: min(clamp(200px, 22vw, 335px), 36svh);
+  --orbit-unit: var(--machine-width);
+  --scene-center: 56%;
+}
+.intro-header {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 5;
+  padding: 24px 4.5vw;
+  pointer-events: none;
+}
+.intro-logo {
+  display: block;
+  width: 72px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  pointer-events: auto;
+}
+.intro-logo-images {
+  display: block;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: transform 360ms cubic-bezier(0.2, 1.5, 0.4, 1);
+}
+.intro-logo-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: opacity 200ms ease;
+}
+.intro-logo-image--hover {
+  opacity: 0;
+}
+.intro-logo:focus-visible .intro-logo-images {
+  transform: scale(1.07);
+}
+.intro-logo[data-hover-ready="true"]:focus-visible .intro-logo-image--default {
+  opacity: 0;
+}
+.intro-logo[data-hover-ready="true"]:focus-visible .intro-logo-image--hover {
+  opacity: 1;
+}
+@media (hover: hover) and (pointer: fine) {
+  .intro-logo:hover .intro-logo-images {
+    transform: scale(1.07);
+  }
+  .intro-logo[data-hover-ready="true"]:hover .intro-logo-image--default {
+    opacity: 0;
+  }
+  .intro-logo[data-hover-ready="true"]:hover .intro-logo-image--hover {
+    opacity: 1;
+  }
+}
+.intro-background {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0.5;
+  transition: opacity 420ms ease;
+  pointer-events: none;
+  user-select: none;
+}
+.intro--active .intro-background {
+  opacity: 1;
+}
+.intro-interaction {
+  position: absolute;
+  left: 50%;
+  top: var(--scene-center);
+  width: var(--machine-width);
+  aspect-ratio: 435 / 740;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+}
+.intro .machine {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  background: transparent;
+  border-radius: 47% 47% 16% 16%;
+  touch-action: manipulation;
+}
+.intro .machine:focus-visible {
+  outline-offset: 10px;
+}
+.intro-machine-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 1;
+  transform: scale(1);
+  transform-origin: center;
+  transition: transform 520ms cubic-bezier(0.2, 1.3, 0.35, 1);
+  pointer-events: none;
+}
+.intro--active .intro-machine-art {
+  transform: scale(0.94);
+}
+.intro-machine-shadow {
+  position: absolute;
+  bottom: 0;
+  left: 8%;
+  width: 84%;
+  height: 3%;
+  border-radius: 50%;
+  background: #61718e;
+  filter: blur(9px);
+  opacity: 0.17;
+  z-index: -1;
+  pointer-events: none;
+}
+.intro-artworks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+.intro-orb {
+  --orb-x: var(--desktop-x);
+  --orb-y: var(--desktop-y);
+  --orb-size: var(--desktop-size);
+  position: absolute;
+  left: 50%;
+  top: var(--scene-center);
+  width: calc(var(--orbit-unit) * var(--orb-size));
+  aspect-ratio: 1;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.12) rotate(calc(var(--tilt) * -2));
+  transition:
+    transform 430ms cubic-bezier(0.4, 0, 0.25, 1) var(--exit-delay),
+    opacity 300ms ease var(--exit-delay);
+}
+.intro--active .intro-orb {
+  opacity: 1;
+  transform:
+    translate(
+      calc(-50% + var(--orbit-unit) * var(--orb-x)),
+      calc(-50% + var(--orbit-unit) * var(--orb-y))
+    )
+    scale(1) rotate(var(--tilt));
+  transition:
+    transform var(--travel-duration) cubic-bezier(0.18, 1.25, 0.35, 1) var(--enter-delay),
+    opacity 260ms ease var(--enter-delay);
+  will-change: transform, opacity;
+}
+.intro-orb-float,
+.intro-orb-image {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+.intro-orb-image {
+  position: relative;
+  overflow: hidden;
+  background: #e3e6ee;
+  box-shadow: 0 5px 12px -7px #22345155;
+}
+.intro-orb-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.intro-orb-image::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 1px 2px 3px #ffffff38, inset -2px -3px 5px #263b5712;
+}
+.intro--active .intro-orb-float {
+  animation: intro-orb-float var(--float-duration) ease-in-out infinite alternate;
+  animation-delay: calc(var(--enter-delay) + var(--travel-duration));
+  will-change: transform;
+}
+@keyframes intro-orb-float {
+  from { transform: translate(0, 0) rotate(0); }
+  to { transform: translate(var(--float-x), var(--float-y)) rotate(1deg); }
+}
+@media (max-width: 760px) {
+  .intro {
+    min-height: 560px;
+    --machine-width: min(clamp(180px, 48vw, 265px), 32svh);
+    --orbit-unit: min(100vw, 62svh);
+  }
+  .intro-header { padding: 20px 5vw; }
+  .intro-logo { width: 64px; }
+  .intro-background {
+    position: absolute;
+    width: 100%;
+    height: auto;
+    top: 13%;
+  }
+  .intro-orb {
+    --orb-x: var(--mobile-x);
+    --orb-y: var(--mobile-y);
+    --orb-size: var(--mobile-size);
+  }
+}
+@media (max-height: 650px) and (min-width: 761px) {
+  .intro {
+    min-height: 480px;
+    --machine-width: min(clamp(200px, 22vw, 335px), 32svh);
+  }
+}
+@media (max-height: 600px) {
+  .intro {
+    min-height: 0;
+    --machine-width: 28svh;
+  }
+  .intro-header { padding-top: 14px; }
+  .intro-logo { width: 56px; }
+}
+@media (max-height: 600px) and (orientation: landscape) {
+  .intro { --orbit-unit: var(--machine-width); }
+  .intro-background {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+  .intro-orb {
+    --orb-x: var(--desktop-x);
+    --orb-y: var(--desktop-y);
+    --orb-size: var(--desktop-size);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .intro-logo-images,
+  .intro-logo-image,
+  .intro-background,
+  .intro-machine-art,
+  .intro .intro-orb {
+    transition-duration: 160ms;
+    transition-timing-function: ease;
+    transition-delay: 0ms;
+  }
+  .intro-orb {
+    transform:
+      translate(
+        calc(-50% + var(--orbit-unit) * var(--orb-x)),
+        calc(-50% + var(--orbit-unit) * var(--orb-y))
+      )
+      scale(0.96) rotate(var(--tilt));
+  }
+  .intro .intro-orb-float { animation: none; }
+}

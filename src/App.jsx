@@ -106,43 +106,45 @@ export default function App() {
       >
         본문으로 이동
       </a>
-      <header
-        inert={selectedProject ? true : undefined}
-        className={`site-header ${route.page === "work" ? "site-header--work" : ""}`}
-      >
-        <button
-          className="wordmark"
-          onClick={goIntro}
-          aria-label="GetMore 인트로로 돌아가기"
+      {route.page === "work" && (
+        <header
+          inert={selectedProject ? true : undefined}
+          className={`site-header ${route.page === "work" ? "site-header--work" : ""}`}
         >
-          getmore
-          <svg className="wordmark-star" viewBox="0 0 40 40" aria-hidden="true">
-            <path
-              d="M20 3v34M3 20h34M8 8l24 24M8 32 32 8"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="4"
-              strokeLinecap="round"
-            />
-          </svg>
-        </button>
-        <span className="header-caption">
-          Independent graphic designer
-          <br />
-          <span>Ideas, made visual.</span>
-        </span>
-        <button
-          className="header-work"
-          onClick={() => {
-            if (route.page !== "work") navigate("#work");
-            else if (selectedProject) closeProject();
-          }}
-        >
-          Selected work <span aria-hidden="true">↗</span>
-        </button>
-      </header>
+          <button
+            className="wordmark"
+            onClick={goIntro}
+            aria-label="GetMore 인트로로 돌아가기"
+          >
+            getmore
+            <svg className="wordmark-star" viewBox="0 0 40 40" aria-hidden="true">
+              <path
+                d="M20 3v34M3 20h34M8 8l24 24M8 32 32 8"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="4"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
+          <span className="header-caption">
+            Independent graphic designer
+            <br />
+            <span>Ideas, made visual.</span>
+          </span>
+          <button
+            className="header-work"
+            onClick={() => {
+              if (route.page !== "work") navigate("#work");
+              else if (selectedProject) closeProject();
+            }}
+          >
+            Selected work <span aria-hidden="true">↗</span>
+          </button>
+        </header>
+      )}
       {route.page === "intro" ? (
-        <Intro onEnter={() => navigate("#work")} />
+        <Intro />
       ) : (
         <main
           className="work-page"

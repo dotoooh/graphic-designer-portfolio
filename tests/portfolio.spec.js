@@ -1,96 +1,114 @@
 import { test, expect } from "@playwright/test";
 
-test("intro trigger, sequential animation, one-shot lock and history", async ({
-  page,
-}, testInfo) => {
+test("intro hover and touch reveal seven graphics without navigating", async ({ page }, testInfo) => {
   const errors = [];
-  page.on("pageerror", (error) => errors.push(error.message));
-  const assets = [];
-  page.on("request", (request) => assets.push(request.url()));
-  await page.goto("/");
-  await expect(page.locator(".intro")).toHaveAttribute("data-phase", "idle");
-  // Record actual DOM phases and computed animations throughout the transition.
-  await page.evaluate(() => {
-    window.observedPhases = [];
-    const intro = document.querySelector(".intro");
-    new MutationObserver(() => {
-      window.observedPhases.push({
-        phase: intro.dataset.phase,
-        time: performance.now(),
-        ball: getComputedStyle(document.querySelector(".lottery-ball"))
-          .animationName,
-        handle: getComputedStyle(document.querySelector(".handle-layer"))
-          .animationName,
-        zoom: getComputedStyle(document.querySelector(".intro-scene"))
-          .animationName,
-      });
-    }).observe(intro, { attributes: true, attributeFilter: ["data-phase"] });
+  page.on("pageerror", error => errors.push(error.message));
+  page.on("console", message => {
+    if (message.type() === "error") errors.push(message.text());
   });
-  const machine = page.getByRole("button", {
-    name: "뽑기 기계를 작동하고 작업물 보기",
+  await page.goto("/");
+  const intro = page.locator(".intro");
+  const machine = page.getByRole("button", { name: "주변 작업물 그래픽 펼치기" });
+  const orbs = page.locator(".intro-orb");
+  await expect(intro).toHaveAttribute("data-active", "false");
+  await expect(page.locator(".intro-background")).toHaveCSS("opacity", "0.5");
+  await expect(orbs).toHaveCount(7);
+  await expect(page.locator(".header-caption, .header-work, .intro-hint, .intro-bottom")).toHaveCount(0);
+  await expect(page.locator(".lottery-ball, .handle-layer, .glass-target")).toHaveCount(0);
+  await page.evaluate(() => {
+    window.introStates = [];
+    new MutationObserver(() => window.introStates.push(document.querySelector(".intro").dataset.active))
+      .observe(document.querySelector(".intro"), { attributes: true, attributeFilter: ["data-active"] });
   });
   if (testInfo.project.name === "mobile") await machine.tap();
-  else {
-    // Hovering the base must not start the machine, only the glass does.
-    const box = await machine.boundingBox();
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height * 0.9);
-    await expect(page.locator(".intro")).toHaveAttribute("data-phase", "idle");
-    await page.locator(".glass-target").hover();
+  else await machine.hover();
+  await expect(machine).toHaveAttribute("aria-pressed", "true");
+  await expect(orbs.first()).toHaveCSS("opacity", "1");
+  await expect(orbs.last()).toHaveCSS("opacity", "1");
+  await expect(page.locator(".intro-background")).toHaveCSS("opacity", "1");
+  await expect(page.locator(".intro-machine-art")).toHaveCSS("transform", "matrix(0.94, 0, 0, 0.94, 0, 0)");
+  // Remain active after the final stagger and float have started.
+  await page.waitForTimeout(1000);
+  await expect(intro).toHaveAttribute("data-active", "true");
+  await expect(page).not.toHaveURL(/#work/);
+  const floatBefore = await page.locator(".intro-orb-float").first().evaluate(el => getComputedStyle(el).transform);
+  await page.waitForTimeout(150);
+  const floatAfter = await page.locator(".intro-orb-float").first().evaluate(el => getComputedStyle(el).transform);
+  expect(floatBefore).not.toBe(floatAfter);
+  if (testInfo.project.name === "mobile") {
+    await machine.tap();
+    await expect(intro).toHaveAttribute("data-active", "false");
+    await machine.tap();
+    await expect(intro).toHaveAttribute("data-active", "true");
+    await page.touchscreen.tap(page.viewportSize().width - 8, 10);
+  } else {
+    const bounds = await page.locator(".intro-interaction").boundingBox();
+    // The visual shrinks, but its original hit area remains stable at its edges.
+    for (const x of [bounds.x + 2, bounds.x + bounds.width - 2, bounds.x + bounds.width / 2]) {
+      await page.mouse.move(x, bounds.y + bounds.height / 2);
+      await expect(intro).toHaveAttribute("data-active", "true");
+    }
+    await machine.click();
+    await expect(intro).toHaveAttribute("data-active", "true");
+    expect(await page.evaluate(() => window.introStates)).toEqual(["true"]);
+    await page.mouse.move(5, 5);
   }
-  await expect(page.locator(".intro")).toHaveAttribute("data-phase", "mixing");
-  await expect(page.locator(".glass-animation")).toHaveCSS("opacity", "1");
-  expect(
-    await page
-      .locator(".lottery-ball")
-      .first()
-      .evaluate((ball) => getComputedStyle(ball).transform),
-  ).not.toBe("none");
-  await page.screenshot({
-    path: `test-results/mixing-${testInfo.project.name}.png`,
-  });
-  await machine.dispatchEvent("click");
-  await expect(page.locator(".intro")).toHaveAttribute("data-phase", "turning");
-  await expect(page.locator(".intro")).toHaveAttribute("data-phase", "zooming");
-  await expect(page).toHaveURL(/#work$/);
-  const observed = await page.evaluate(() => window.observedPhases);
-  expect(observed.map((item) => item.phase)).toEqual([
-    "mixing",
-    "turning",
-    "zooming",
-  ]);
-  expect(observed[0].ball).toBe("ball-tumble");
-  expect(observed[1].handle).toBe("handle-turn");
-  expect(observed[2].zoom).toBe("swoosh-in");
-  expect(observed[1].time - observed[0].time).toBeGreaterThan(1200);
-  expect(observed[1].time - observed[0].time).toBeLessThan(1600);
-  await expect(page.locator(".project-card")).toHaveCount(12);
-  await page.goBack();
-  await expect(page.locator(".intro")).toHaveAttribute("data-phase", "idle");
-  expect(assets.some((url) => /main1\.png/.test(url))).toBe(false);
+  await expect(intro).toHaveAttribute("data-active", "false");
+  await expect(orbs.first()).toHaveCSS("opacity", "0");
+  await expect(orbs.last()).toHaveCSS("opacity", "0");
+  await expect(page.locator(".intro-background")).toHaveCSS("opacity", "0.5");
+  await expect(page.locator(".intro-machine-art")).toHaveCSS("transform", "matrix(1, 0, 0, 1, 0, 0)");
+  await expect(page).not.toHaveURL(/#work/);
   expect(errors).toEqual([]);
 });
 
-test("keyboard activation and reduced-motion fade", async ({ page }) => {
+test("intro logo crossfades without layout shift and rapid hover reverses cleanly", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Hover is desktop-only.");
+  await page.goto("/");
+  const logo = page.locator(".intro-logo");
+  const before = await logo.boundingBox();
+  await logo.hover();
+  await expect(page.locator(".intro-logo-image--default")).toHaveCSS("opacity", "0");
+  await expect(page.locator(".intro-logo-image--hover")).toHaveCSS("opacity", "1");
+  await expect(page.locator(".intro-logo-images")).toHaveCSS("transform", "matrix(1.07, 0, 0, 1.07, 0, 0)");
+  expect(await logo.boundingBox()).toEqual(before);
+  await page.mouse.move(5, 5);
+  await expect(page.locator(".intro-logo-image--default")).toHaveCSS("opacity", "1");
+  await expect(page.locator(".intro-logo-image--hover")).toHaveCSS("opacity", "0");
+  const machine = page.locator(".machine");
+  for (let index = 0; index < 4; index++) {
+    await machine.hover();
+    await page.waitForTimeout(80);
+    await page.mouse.move(5, 5);
+  }
+  await expect(page.locator(".intro")).toHaveAttribute("data-active", "false");
+  await expect(page.locator(".intro-orb").first()).toHaveCSS("opacity", "0");
+  await machine.hover();
+  await expect(page.locator(".intro-orb").last()).toHaveCSS("opacity", "1");
+  await expect(page).not.toHaveURL(/#work/);
+});
+
+test("keyboard toggles and reduced motion avoids travel and floating", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
-  await page.evaluate(() => {
-    window.observedPhases = [];
-    const intro = document.querySelector(".intro");
-    new MutationObserver(() =>
-      window.observedPhases.push(intro.dataset.phase),
-    ).observe(intro, { attributes: true, attributeFilter: ["data-phase"] });
-  });
-  const machine = page.getByRole("button", {
-    name: "뽑기 기계를 작동하고 작업물 보기",
-  });
+  const machine = page.getByRole("button", { name: "주변 작업물 그래픽 펼치기" });
+  const firstOrb = page.locator(".intro-orb").first();
+  const initialBox = await firstOrb.boundingBox();
   await machine.focus();
   await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/#work$/);
-  expect(await page.evaluate(() => window.observedPhases)).toEqual(["fade"]);
-  await page.goBack();
-  await machine.focus();
+  await expect(machine).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".intro-orb").last()).toHaveCSS("opacity", "1");
+  const activeBox = await firstOrb.boundingBox();
+  expect(Math.abs((initialBox.x + initialBox.width / 2) - (activeBox.x + activeBox.width / 2))).toBeLessThan(1);
+  expect(Math.abs((initialBox.y + initialBox.height / 2) - (activeBox.y + activeBox.height / 2))).toBeLessThan(1);
+  await expect(page.locator(".intro-orb-float").first()).toHaveCSS("animation-name", "none");
   await page.keyboard.press("Space");
-  await expect(page).toHaveURL(/#work$/);
+  await expect(machine).toHaveAttribute("aria-pressed", "false");
+  await page.keyboard.press("Space");
+  await expect(machine).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("Enter");
+  await expect(machine).toHaveAttribute("aria-pressed", "false");
+  await expect(page).not.toHaveURL(/#work/);
 });
 
 test("all popup formats, dismissal methods, focus and scroll restoration", async ({
@@ -331,7 +349,10 @@ test("gallery position survives back and forward, malformed hashes are harmless"
   page,
 }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Selected work" }).click();
+  await expect(page.locator(".intro")).toBeVisible();
+  // The new intro has no gallery link; navigate by the existing public hash route.
+  await page.evaluate(() => { window.location.hash = "work"; });
+  await expect(page.locator(".project-card").first()).toBeVisible();
   await page.evaluate(() => window.scrollTo(0, 540));
   await page.goBack();
   await expect(page.locator(".intro")).toBeVisible();
@@ -343,43 +364,30 @@ test("gallery position survives back and forward, malformed hashes are harmless"
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 
-test("short phones, landscape and wide displays keep intro contents on screen", async ({
-  page,
-}, testInfo) => {
-  test.skip(
-    testInfo.project.name !== "desktop",
-    "Extra viewports are checked once.",
-  );
+test("intro fits seven circles on small, tall, landscape and wide displays", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "Check the extra viewports once.");
   for (const [width, height] of [
-    [320, 568],
-    [375, 667],
-    [768, 1024],
-    [1024, 768],
-    [1920, 1080],
-    [2560, 1080],
-    [844, 390],
-    [667, 375],
+    [320, 480], [320, 568], [375, 667], [390, 844], [430, 600], [430, 932],
+    [768, 1024], [834, 1112], [1024, 768], [1440, 900],
+    [1920, 1080], [2560, 1080], [844, 390], [667, 375],
   ]) {
     await page.setViewportSize({ width, height });
     await page.goto("/");
-    const box = await page.locator(".machine").boundingBox();
-    const hint = await page.locator(".intro-hint").boundingBox();
-    expect(box.x).toBeGreaterThan(0);
-    expect(box.y).toBeGreaterThan(0);
-    expect(box.x + box.width).toBeLessThan(width);
-    expect(box.y + box.height).toBeLessThan(height);
-    expect(hint.y + hint.height).toBeLessThan(height);
-    expect(hint.y).toBeGreaterThan(box.y + box.height - 8);
-    const background = await page
-      .locator(".intro-background")
-      .evaluate((img) => getComputedStyle(img).objectFit);
-    expect(background).toBe("contain");
-    await page.screenshot({
-      path: `test-results/intro-${width}x${height}.png`,
-    });
-    await page.goto("/#work");
-    expect(
-      await page.evaluate(() => document.documentElement.scrollWidth),
-    ).toBeLessThanOrEqual(width);
+    await page.locator(".machine").hover();
+    await page.waitForTimeout(1650);
+    const elements = await page.locator(".intro-orb-image, .intro-interaction, .intro-logo").evaluateAll(elements =>
+      elements.map(el => {
+        const r = el.getBoundingClientRect();
+        return { className: el.className, x: r.x, y: r.y, right: r.right, bottom: r.bottom };
+      }));
+    expect(elements).toHaveLength(9);
+    for (const box of elements) {
+      expect(box.x, `${width}x${height} ${box.className} left`).toBeGreaterThanOrEqual(0);
+      expect(box.y, `${width}x${height} ${box.className} top`).toBeGreaterThanOrEqual(0);
+      expect(box.right, `${width}x${height} ${box.className} right`).toBeLessThanOrEqual(width);
+      expect(box.bottom, `${width}x${height} ${box.className} bottom`).toBeLessThanOrEqual(height);
+    }
+    await expect(page.locator(".intro-background")).toHaveCSS("object-fit", "contain");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
   }
 });
